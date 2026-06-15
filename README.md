@@ -1,4 +1,4 @@
-# 🦆 Duckstradamus
+# 🦆 Duckstradamus — New Zealand Electricity Price Forecasting
 
 > **The future price of energy.**
 > A machine-learning system that forecasts New Zealand's hourly wholesale electricity
@@ -6,6 +6,10 @@
 > *run your heaviest load during these hours and pay less for the same consumption.*
 
 Built by **Jacques · David · Anu** — Le Wagon Tokyo, 2026.
+
+<!-- Add a banner / architecture image here once you have one:
+![Duckstradamus](images/banner.png)
+-->
 
 ---
 
@@ -15,210 +19,170 @@ Wholesale electricity prices are volatile. The same air conditioning, run for th
 hours, can cost **5× more** from one night to the next — with no warning. At industrial
 scale, that swing turns a ~$1K night into a ~$5K night overnight.
 
-You didn't do anything differently. The *price* did.
-
-**Duckstradamus** exists to make that volatility predictable and actionable.
+You didn't do anything differently. The *price* did. **Duckstradamus** exists to make
+that volatility predictable and actionable.
 
 ---
 
 ## ✨ What It Does
 
-Duckstradamus delivers a **decision, not just a forecast**:
+A **decision, not just a forecast**:
 
 1. **Price forecast** — tomorrow's hourly wholesale electricity prices (next 24 hours).
 2. **Recommendation** — "run your maximum load between these hours tomorrow."
 3. **Measurable saving** — same total consumption, same operations, lower bill.
 
-No change to *what* you do — only *when* you do it. The timing is where the savings live.
+No change to *what* you do — only *when* you do it.
 
 ---
 
-## 🎯 Goal
+## 🧠 Data & Models
 
-- Predict New Zealand's wholesale electricity price.
-- Serve as a **proof of concept** that generalises to larger grids worldwide.
+**Data:** 10 years of hourly NZ electricity-market data (2014 → 2024), ~80 features
+across **Energy** and **Weather**. Source: NZ Electricity Authority (EMI).
 
----
+Feature families: wholesale prices, demand by region, generation by fuel type, HVDC
+inter-island transfer, scheduled outages, lake storage levels, weather (wind, solar,
+temperature), and calendar features (weekends + NZ public holidays).
 
-## 🧠 How It Works — Data & Models
+**Models** (tested head-to-head; XGBoost selected as the strongest):
 
-### Data
-
-- **10 years** of **hourly** NZ electricity-market data (2014-01-01 → 2024-12-31).
-- **~80 features** spanning two domains: **Energy** and **Weather**.
-- **Source:** NZ Electricity Authority / Electricity Market Information (EMI).
-
-Feature families used:
-
-- Wholesale prices (per grid node)
-- Demand by region/zone
-- Generation by fuel type (Hydro, Solar, Geo, Wind, …)
-- HVDC inter-island transfer
-- Scheduled outages by technology
-- Lake storage levels (hydro reservoirs)
-- Weather across major centres (wind, solar irradiance, temperature)
-- Calendar features (weekends + NZ public holidays)
-
-### Models
-
-Two models were tested **head-to-head**, and the strongest performer was selected:
-
-| Model     | Type                          | Notes                                              |
-|-----------|-------------------------------|----------------------------------------------------|
-| **XGBoost** | Tree-based machine learning   | Strong baseline, highly interpretable              |
-| **LSTM**    | Deep learning (recurrent NN)  | Designed for time series, captures sequential cycles |
-
-Time-series structure matters here: the **order** of data, plus **daily and yearly
-cycles**, drive the patterns the models learn.
+| Model       | Type                         | Notes                                          |
+|-------------|------------------------------|------------------------------------------------|
+| **XGBoost** | Tree-based gradient boosting | Final model — strong & interpretable           |
+| **LSTM**    | Recurrent neural network     | Captures sequential daily/yearly cycles        |
+| **Prophet** | Additive time-series model   | Trend + seasonality baseline                   |
 
 ---
 
 ## 📊 Results
 
-We beat the baseline, then beat the published literature.
-
-**Benchmark 1 — The Naive Baseline** (`tomorrow's price = today's price`)
-A surprisingly hard benchmark that most published models fail to beat consistently.
-> Duckstradamus is more accurate than naive on **258 / 365 days**.
-
-**Benchmark 2 — Published Academic Work**
-A peer-reviewed study on NZ electricity price forecasting reported a **1.30** error;
-our XGBoost achieves **1.12**.
-> **≈13.8% reduction** in forecasting error vs the published study — external
-> validation, not just beating our own baselines.
-
-On large price peaks, error is around **43 $/MWh (~12%)** — peaks remain the hardest
-part to predict.
+- Beats the **naive baseline** (`tomorrow = today`) on **258 / 365 days**.
+- XGBoost error of **1.12** vs a published study's **1.30** — a **~13.8% reduction**.
+- On large price peaks, error is around **43 $/MWh (~12%)** — peaks remain the hardest.
 
 ---
 
 ## 🗂️ Project Structure
 
 ```
-.
-├── full_cleaning_preprocessing_script.py   # End-to-end data preprocessing pipeline
-├── README.md                               # This file
-├── requirements.txt                        # Python dependencies
-└── data_input/                             # Raw input data (structure below)
-    ├── wholesale_prices.csv
-    ├── demand_by_zone.csv
-    ├── hvdc_transfer.csv
-    ├── scheduled_outages.csv
-    ├── generation_output_merged.csv
-    ├── Wind_data_100m.csv
-    ├── Solar_data.csv
-    ├── Temperature_data.csv
-    └── Lakes storage levels/               # one CSV per lake
+newzealand-electricity-demand-forecasting/
+├── README.md
+├── requirements.txt
+├── .gitignore
+│
+├── data_processing/        # Cleaning & preprocessing pipeline (UTC+12, hourly merge)
+│   └── preprocessing.py     # run_full_preprocessing(...) — builds the master dataset
+│
+├── feature_engineering/    # Feature building & selection
+│
+├── models/                 # One folder per model
+│   ├── xgboost/             # XGBoost training & evaluation (final model)
+│   ├── prophet/             # Prophet baseline
+│   └── lstm/                # LSTM deep-learning model
+│
+├── dashboard/              # Live prediction & recommendation app
+│
+├── notebooks/              # Exploratory & analysis notebooks
+│
+└── images/                 # Figures, plots & diagrams used in the README / reports
 ```
 
-> ⚠️ Input file names are referenced directly by the pipeline — keep them exact.
+> ⚠️ Raw and processed **data** (CSV / XLSX) and `__pycache__` are **git-ignored** —
+> they are never committed. Keep your raw input data locally (e.g. in a `data_input/`
+> folder) and point the pipeline at it. Only **figures** in `images/` are committed.
 
 ---
 
 ## 🔧 Installation
 
 ```bash
-# (Recommended) create and activate a virtual environment
+# Clone
+git clone https://github.com/<your-username>/newzealand-electricity-demand-forecasting.git
+cd newzealand-electricity-demand-forecasting
+
+# (Recommended) virtual environment
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
-# Install dependencies
+# Dependencies
 pip install -r requirements.txt
 ```
 
-**`requirements.txt`** (minimum for the preprocessing pipeline):
+---
+
+## 🚀 Usage — Preprocessing
+
+The pipeline in `data_processing/preprocessing.py` cleans every raw source, converts NZ
+local time to a fixed **UTC+12** offset, aggregates to hourly, and merges everything
+into one master table (anchored on the wholesale-price timeline).
+
+```python
+from data_processing.preprocessing import run_full_preprocessing
+
+df_master = run_full_preprocessing(
+    data_folder       = "data_input",   # your local raw-data folder (git-ignored)
+    start_date        = "2014-01-01",
+    end_date          = "2024-12-31",
+    save_path         = "preprocessed_data.csv",   # optional
+    save_intermediate = False,
+)
+```
+
+**Expected raw-data layout** (inside `data_input/`):
 
 ```
-pandas
-holidays
-tzdata
+data_input/
+├── wholesale_prices.csv
+├── demand_by_zone.csv
+├── hvdc_transfer.csv
+├── scheduled_outages.csv
+├── generation_output_merged.csv
+├── Wind_data_100m.csv
+├── Solar_data.csv
+├── Temperature_data.csv
+└── Lakes storage levels/      # one CSV per lake
 ```
 
-> Modelling (XGBoost / LSTM) additionally requires packages such as `xgboost`,
-> `tensorflow`/`keras`, `scikit-learn`, `numpy`, and `matplotlib`. Add these to
-> `requirements.txt` as your modelling code lands.
+**Key engineering details:** all sources converted from `Pacific/Auckland` to fixed
+`Etc/GMT-12` (removes DST); rates (price, flow, temperature) are averaged while
+quantities (demand GWh, generation kWh) are summed; sparse lake levels are
+time-interpolated to hourly.
 
 ---
 
-## 🚀 Usage — Preprocessing Pipeline
+## 🔁 Pipeline Order
 
-The preprocessing pipeline cleans every raw source, aligns it to a fixed **UTC+12**
-hourly timeline, and merges everything into one master table ready for modelling.
-
-```python
-from full_cleaning_preprocessing_script import run_full_preprocessing
-
-df_master = run_full_preprocessing(
-    data_folder       = "data_input",
-    start_date        = "2014-01-01",
-    end_date          = "2024-12-31",
-    save_path         = "preprocessed_data.csv",  # optional
-    save_intermediate = False                     # True = also save per-source CSVs
-)
-
-print(df_master.shape)
-df_master.head()
-```
-
-### Parameters
-
-| Argument            | Type   | Description                                                              |
-|---------------------|--------|--------------------------------------------------------------------------|
-| `data_folder`       | `str`  | Folder containing all raw input files.                                   |
-| `start_date`        | `str`  | Start of the target date range, e.g. `"2014-01-01"`.                     |
-| `end_date`          | `str`  | End of the target date range, e.g. `"2024-12-31"`.                       |
-| `save_path`         | `str`  | *(optional)* Output path for the final master CSV. `None` = don't save.  |
-| `save_intermediate` | `bool` | *(optional)* If `True`, each step also writes a CSV to `data_output/`.   |
-
-### What the pipeline does
-
-The **wholesale-price** table is the *anchor*: it defines the full hourly grid, and
-every other source is **left-joined** onto it (so gaps become `NaN`, not dropped rows).
-
-| # | Step              | Aggregation        |
-|---|-------------------|--------------------|
-| 1 | Wholesale price   | hourly **mean**    |
-| 2 | Generation output | hourly **sum**     |
-| 3 | Wind              | clean + filter     |
-| 4 | Solar             | clean + filter     |
-| 5 | Temperature       | clean + filter     |
-| 6 | Lake storage      | hourly interpolate |
-| 7 | Holidays          | hourly flag        |
-| 8 | Demand per zone   | hourly **sum**     |
-| 9 | HVDC + outages    | hourly mean        |
-
-**Key engineering details**
-
-- **Timezone:** all sources converted from `Pacific/Auckland` to fixed `Etc/GMT-12`,
-  removing daylight-saving variation.
-- **DST handling:** repeated ("fall back") and missing ("spring forward") hours are
-  handled explicitly per source.
-- **Aggregation semantics:** rates (price, flow, temperature) are averaged; quantities
-  (demand GWh, generation kWh) are summed.
-- **Sparse data:** lake levels are time-interpolated to hourly rather than forward-filled.
+1. **Data processing** — `data_processing/preprocessing.py` → master hourly dataset.
+2. **Feature engineering** — `feature_engineering/` → model-ready features.
+3. **Modelling** — `models/{xgboost,prophet,lstm}/` → train & evaluate.
+4. **Dashboard** — `dashboard/` → live prediction & load-shifting recommendation.
 
 ---
 
 ## 🛣️ Where This Goes
 
-Beyond freezers, and beyond New Zealand — any operation that can shift *when* it uses
-power can save money:
-
-- **Data centres** — schedule AI training and batch workloads around the cheapest hours.
-- **Manufacturing** — sequence energy-intensive processes around renewable surplus.
-- **EV fleet charging** — optimise charging for the lowest overnight prices.
-- **Hydrogen producers** — run electrolysers when renewable generation drives spot prices low.
-
-> Save a business thousands a day, millions a year — across industries, across the globe.
+Beyond New Zealand — any operation that can shift *when* it uses power: **data centres**
+(schedule AI/batch jobs), **manufacturing** (sequence around renewable surplus), **EV
+fleet charging** (cheapest overnight hours), and **hydrogen producers** (run
+electrolysers when spot prices are low).
 
 ---
 
+## 👤 Team
+
+- **Jacques**
+- **David**
+- **Anu**
+
+Le Wagon Tokyo · 2026
+
 ## 📄 License
 
-_Specify a license here (e.g. MIT) or mark as private/coursework._
+_Specify a license here (e.g. MIT) or mark as coursework._
 
 ## 🙏 Acknowledgements
 
 - Data: **New Zealand Electricity Authority** (Electricity Market Information, EMI).
-- Public holiday data via the [`holidays`](https://pypi.org/project/holidays/) library.
+- Public holidays via the [`holidays`](https://pypi.org/project/holidays/) library.
 - Built during the **Le Wagon Tokyo** data science bootcamp.
