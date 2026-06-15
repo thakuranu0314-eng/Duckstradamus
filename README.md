@@ -213,18 +213,6 @@ power can save money:
 
 ---
 
-## 👤 Team
-
-- **Jacques**
-- **David**
-- **Anu**
-
-Le Wagon Tokyo · 2026
-
-<!-- Add emails / GitHub / LinkedIn handles here if you'd like -->
-
----
-
 ## 📄 License
 
 _Specify a license here (e.g. MIT) or mark as private/coursework._
