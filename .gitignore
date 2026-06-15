@@ -1,0 +1,34 @@
+# Data
+*.csv
+*.tsv
+*.parquet
+*.xlsx
+*.xls
+data_input/
+data_output/
+
+# Model artifacts
+*.pkl
+*.joblib
+*.h5
+*.keras
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Env / OS / IDE
+.env
+.DS_Store
+.vscode/
+.idea/
+
+# Allow images
+!images/
+!images/**
