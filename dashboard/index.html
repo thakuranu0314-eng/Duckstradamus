@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Duckstradamus — Smart Charging</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:        #0f1419;
+    --panel:     #1a2129;
+    --panel-2:   #232d38;
+    --accent:    #ff9f1c;
+    --accent-2:  #2ec4b6;
+    --naive:     #9b8cff;
+    --text:      #e8edf2;
+    --text-dim:  #8a97a6;
+    --good:      #2ec4b6;
+    --bad:       #ef476f;
+    --border:    #2c3744;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header {
+    padding: 20px 40px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(180deg, #141a21, #0f1419);
+  }
+  .logo { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  nav { display: flex; gap: 8px; }
+  nav button {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 8px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all .2s;
+  }
+  nav button:hover { color: var(--text); border-color: var(--accent); }
+  nav button.active { background: var(--accent); color: #0f1419; border-color: var(--accent); font-weight: 600; }
+
+  main { padding: 32px 40px; max-width: 1200px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: block; animation: fade .4s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px);} to {opacity:1; transform:none;} }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 24px;
+  }
+  h2 { font-size: 18px; margin-bottom: 4px; }
+  .subtitle { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
+
+  .controls { display: flex; gap: 20px; align-items: flex-end; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; }
+  .field input {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 15px;
+    width: 160px;
+  }
+  .field input:focus { outline: none; border-color: var(--accent); }
+  .hint { font-size: 11px; color: var(--text-dim); }
+
+  button.go {
+    background: var(--accent);
+    color: #0f1419;
+    border: none;
+    padding: 11px 30px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .1s, box-shadow .2s;
+  }
+  button.go:hover { box-shadow: 0 4px 16px rgba(255,159,28,.4); }
+  button.go:active { transform: scale(.97); }
+  button.go:disabled { opacity: .5; cursor: not-allowed; }
+
+  button.toggle {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 9px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all .2s;
+  }
+  button.toggle:hover { border-color: var(--accent-2); }
+  button.toggle.on { background: var(--accent-2); color: #0f1419; border-color: var(--accent-2); font-weight: 600; }
+
+  .chart-wrap { position: relative; height: 420px; margin-top: 8px; }
+  .row { display: flex; gap: 24px; flex-wrap: wrap; }
+  .row > * { flex: 1; min-width: 240px; }
+
+  .stat {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .stat .label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; }
+  .stat .value { font-size: 28px; font-weight: 700; margin-top: 6px; }
+  .stat .value.good { color: var(--good); }
+  .stat .value.accent { color: var(--accent); }
+  .stat .sub { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
+
+  .status { font-size: 13px; color: var(--text-dim); margin-top: 14px; min-height: 18px; }
+  .legend-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Duck<span>stradamus</span> ⚡</div>
+  <nav>
+    <button id="navDay" class="active" onclick="showPage('day')">Daily Charging</button>
+    <button id="navYear" onclick="showPage('year')">2024 Savings</button>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ─────────────── PAGE 1: DAILY ─────────────── -->
+  <div id="page-day" class="page active">
+    <div class="card">
+      <h2>Plan tomorrow's charging</h2>
+      <div class="subtitle" id="demoDateLabel">Forecast for the next day</div>
+      <div class="controls">
+        <div class="field">
+          <label>Daily energy demand</label>
+          <input type="number" id="energy" value="2" step="0.1" min="0.1">
+          <span class="hint">MWh per day</span>
+        </div>
+        <div class="field">
+          <label>Max power capacity</label>
+          <input type="number" id="power" value="0.5" step="0.1" min="0.1">
+          <span class="hint">MW</span>
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button class="go" id="goBtn" onclick="runDay()">Go ▶</button>
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button class="toggle" id="truthBtn" onclick="toggleTruth()" disabled>Show true prices</button>
+        </div>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="card">
+      <div class="chart-wrap">
+        <canvas id="dayChart"></canvas>
+      </div>
+    </div>
+
+    <div class="row" id="dayStats" style="display:none;">
+      <div class="stat">
+        <div class="label">Charging hours / day</div>
+        <div class="value accent" id="statHours">–</div>
+        <div class="sub" id="statHoursSub"></div>
+      </div>
+      <div class="stat">
+        <div class="label">Cost — smart charging</div>
+        <div class="value" id="statSmart">–</div>
+        <div class="sub">cheapest predicted hours</div>
+      </div>
+      <div class="stat">
+        <div class="label">Cost — charge anytime</div>
+        <div class="value" id="statUniform">–</div>
+        <div class="sub">spread evenly</div>
+      </div>
+      <div class="stat">
+        <div class="label">You save</div>
+        <div class="value good" id="statSave">–</div>
+        <div class="sub" id="statSaveSub"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─────────────── PAGE 2: YEARLY ─────────────── -->
+  <div id="page-year" class="page">
+    <div class="card">
+      <h2>What you would have saved in 2024</h2>
+      <div class="subtitle">Smart charging (model) vs charging at a flat spread, every day of 2024 — using the same settings as the Daily page.</div>
+      <div class="row" id="yearStats">
+        <div class="stat">
+          <div class="label">Total saved vs flat</div>
+          <div class="value good" id="ySave">–</div>
+          <div class="sub" id="ySaveSub"></div>
+        </div>
+        <div class="stat">
+          <div class="label">Smart charging cost</div>
+          <div class="value accent" id="yModel">–</div>
+          <div class="sub">full year 2024</div>
+        </div>
+        <div class="stat">
+          <div class="label">Flat charging cost</div>
+          <div class="value" id="yUniform">–</div>
+          <div class="sub">full year 2024</div>
+        </div>
+        <div class="stat">
+          <div class="label">vs Naive model</div>
+          <div class="value" id="yNaive">–</div>
+          <div class="sub">extra saved vs yesterday-repeat</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Cumulative savings over 2024</h2>
+      <div class="subtitle">
+        <span class="legend-dot" style="background:var(--accent)"></span>Smart (model)
+        <span class="legend-dot" style="background:var(--naive); margin-left:16px;"></span>Naive
+      </div>
+      <div class="chart-wrap"><canvas id="yearChart"></canvas></div>
+    </div>
+  </div>
+
+</main>
+
+<script src="data.js"></script>
+<script>
+// ───────────────────────── helpers ─────────────────────────
+
+function hoursNeeded(energy, power) {
+  return Math.max(1, Math.min(24, Math.ceil(energy / power)));
+}
+
+// indices of the n cheapest hours given an array of prices
+function cheapestHours(prices, n) {
+  return prices
+    .map((p, i) => [p, i])
+    .sort((a, b) => a[0] - b[0])
+    .slice(0, n)
+    .map(x => x[1]);
+}
+
+// evenly spaced hours across the day
+function uniformHours(n) {
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(Math.round(i * 23 / Math.max(1, n - 1)));
+  return [...new Set(out)];
+}
+
+// cost = mean price of chosen hours * power * hours
+function cost(prices, chosen, power, hours) {
+  const mean = chosen.reduce((s, i) => s + prices[i], 0) / chosen.length;
+  return mean * power * hours;
+}
+
+const fmt = v => v.toLocaleString("en-NZ", {maximumFractionDigits: 0});
+const HOURS = Array.from({length: 24}, (_, i) => `${String(i).padStart(2,"0")}:00`);
+
+// ───────────────────────── navigation ─────────────────────────
+
+function showPage(p) {
+  document.querySelectorAll(".page").forEach(el => el.classList.remove("active"));
+  document.getElementById("page-" + p).classList.add("active");
+  document.getElementById("navDay").classList.toggle("active", p === "day");
+  document.getElementById("navYear").classList.toggle("active", p === "year");
+  if (p === "year") renderYear();
+}
+
+// ───────────────────────── DAY PAGE ─────────────────────────
+
+let dayChart = null;
+let showTruth = false;
+let currentDay = null;
+let chargeHours = [];
+
+document.getElementById("demoDateLabel").textContent =
+  "Forecast for " + DEMO_DAY.date;
+
+function initDayChart() {
+  const ctx = document.getElementById("dayChart");
+  dayChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: HOURS,
+      datasets: [
+        {
+          label: "Predicted price",
+          data: [],
+          borderColor: "#ff9f1c",
+          backgroundColor: "rgba(255,159,28,.08)",
+          borderWidth: 2.5,
+          tension: 0.35,
+          pointRadius: 0,
+          fill: true,
+        },
+        {
+          label: "True price",
+          data: [],
+          borderColor: "#2ec4b6",
+          borderWidth: 2,
+          borderDash: [5,4],
+          tension: 0.35,
+          pointRadius: 0,
+          fill: false,
+          hidden: true,
+        },
+        {
+          label: "Charge here",
+          data: [],
+          borderColor: "transparent",
+          backgroundColor: "rgba(255,159,28,.85)",
+          pointRadius: 0,
+          pointHoverRadius: 6,
+          showLine: false,
+          type: "bar",
+          barThickness: 14,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { labels: { color: "#8a97a6", usePointStyle: true } },
+        tooltip: { mode: "index", intersect: false }
+      },
+      scales: {
+        x: { ticks: { color: "#8a97a6", maxRotation: 0, autoSkip: true, maxTicksLimit: 12 },
+             grid: { color: "rgba(255,255,255,.04)" } },
+        y: { ticks: { color: "#8a97a6" }, grid: { color: "rgba(255,255,255,.06)" },
+             title: { display: true, text: "NZD / MWh", color: "#8a97a6" }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function runDay() {
+  const energy = parseFloat(document.getElementById("energy").value);
+  const power  = parseFloat(document.getElementById("power").value);
+  if (!energy || !power) { setStatus("Please enter valid numbers."); return; }
+
+  const goBtn = document.getElementById("goBtn");
+  const truthBtn = document.getElementById("truthBtn");
+  goBtn.disabled = true;
+  truthBtn.disabled = true;
+  showTruth = false;
+  truthBtn.classList.remove("on");
+  truthBtn.textContent = "Show true prices";
+
+  currentDay = DEMO_DAY;
+  const pred = currentDay.predicted;
+
+  // reset chart
+  dayChart.data.datasets[0].data = [];
+  dayChart.data.datasets[1].data = currentDay.actual;
+  dayChart.data.datasets[1].hidden = true;
+  dayChart.data.datasets[2].data = new Array(24).fill(null);
+  dayChart.update();
+
+  // 1. animate prediction curve drawing in, hour by hour
+  setStatus("Drawing predicted prices…");
+  for (let h = 0; h < 24; h++) {
+    dayChart.data.datasets[0].data.push(pred[h]);
+    dayChart.update();
+    await sleep(120);
+  }
+
+  // 2. compute charging hours
+  const nHours = hoursNeeded(energy, power);
+  chargeHours = cheapestHours(pred, nHours).sort((a,b)=>a-b);
+
+  // 3. highlight charging hours one by one
+  setStatus(`Selecting the ${nHours} cheapest predicted hours…`);
+  await sleep(400);
+  const bars = new Array(24).fill(null);
+  for (const h of chargeHours) {
+    bars[h] = pred[h];
+    dayChart.data.datasets[2].data = [...bars];
+    dayChart.update();
+    await sleep(200);
+  }
+
+  // 4. stats (costs use TRUE price — what you'd actually pay)
+  const actual   = currentDay.actual;
+  const uniform  = uniformHours(nHours);
+  const smartCost   = cost(actual, chargeHours, power, nHours);
+  const uniformCost = cost(actual, uniform,     power, nHours);
+  const saved = uniformCost - smartCost;
+  const pct = uniformCost > 0 ? (100*saved/uniformCost) : 0;
+
+  document.getElementById("statHours").textContent = nHours + " h";
+  document.getElementById("statHoursSub").textContent =
+    `${power} MW × ${nHours} h = ${(power*nHours).toFixed(1)} MWh`;
+  document.getElementById("statSmart").textContent   = "$" + smartCost.toFixed(2);
+  document.getElementById("statUniform").textContent = "$" + uniformCost.toFixed(2);
+  document.getElementById("statSave").textContent    = "$" + saved.toFixed(2);
+  document.getElementById("statSaveSub").textContent = pct.toFixed(1) + "% cheaper";
+  document.getElementById("dayStats").style.display = "flex";
+
+  setStatus(`Recommended charging hours: ${chargeHours.map(h=>HOURS[h]).join(", ")}`);
+  goBtn.disabled = false;
+  truthBtn.disabled = false;
+}
+
+function toggleTruth() {
+  showTruth = !showTruth;
+  const btn = document.getElementById("truthBtn");
+  btn.classList.toggle("on", showTruth);
+  btn.textContent = showTruth ? "Hide true prices" : "Show true prices";
+  dayChart.data.datasets[1].hidden = !showTruth;
+  dayChart.update();
+}
+
+function setStatus(t) { document.getElementById("status").textContent = t; }
+
+// ───────────────────────── YEAR PAGE ─────────────────────────
+
+let yearChart = null;
+
+function renderYear() {
+  const energy = parseFloat(document.getElementById("energy").value) || 2;
+  const power  = parseFloat(document.getElementById("power").value)  || 0.5;
+  const nHours = hoursNeeded(energy, power);
+
+  let cumModel = 0, cumNaive = 0, cumUniform = 0;
+  const labels = [], modelSaveCum = [], naiveSaveCum = [];
+  let mSave = 0, nSave = 0;
+
+  for (const d of DAYS_2024) {
+    const smart   = cheapestHours(d.predicted, nHours);
+    const naiveH  = cheapestHours(d.naive,     nHours);
+    const unif    = uniformHours(nHours);
+
+    const cM = cost(d.actual, smart,  power, nHours);
+    const cN = cost(d.actual, naiveH, power, nHours);
+    const cU = cost(d.actual, unif,   power, nHours);
+
+    cumModel += cM; cumNaive += cN; cumUniform += cU;
+    mSave += (cU - cM);
+    nSave += (cU - cN);
+
+    labels.push(d.date);
+    modelSaveCum.push(mSave);
+    naiveSaveCum.push(nSave);
+  }
+
+  const totalSave = cumUniform - cumModel;
+  const pct = cumUniform > 0 ? 100*totalSave/cumUniform : 0;
+  const vsNaive = cumNaive - cumModel;
+
+  document.getElementById("ySave").textContent    = "$" + fmt(totalSave);
+  document.getElementById("ySaveSub").textContent = pct.toFixed(1) + "% cheaper · " + nHours + " h/day";
+  document.getElementById("yModel").textContent   = "$" + fmt(cumModel);
+  document.getElementById("yUniform").textContent = "$" + fmt(cumUniform);
+  document.getElementById("yNaive").textContent   = (vsNaive>=0?"+$":"−$") + fmt(Math.abs(vsNaive));
+
+  if (yearChart) yearChart.destroy();
+  yearChart = new Chart(document.getElementById("yearChart"), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label:"Cumulative smart saving", data: modelSaveCum,
+          borderColor:"#ff9f1c", backgroundColor:"rgba(255,159,28,.1)",
+          borderWidth:2.5, pointRadius:0, tension:.2, fill:true },
+        { label:"Cumulative naive saving", data: naiveSaveCum,
+          borderColor:"#9b8cff", borderWidth:2, borderDash:[5,4],
+          pointRadius:0, tension:.2, fill:false },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:"#8a97a6", usePointStyle:true } } },
+      scales:{
+        x:{ ticks:{ color:"#8a97a6", maxTicksLimit:12, maxRotation:0 },
+            grid:{ color:"rgba(255,255,255,.04)" } },
+        y:{ ticks:{ color:"#8a97a6", callback:v=>"$"+fmt(v) },
+            grid:{ color:"rgba(255,255,255,.06)" },
+            title:{ display:true, text:"Cumulative saving (NZD)", color:"#8a97a6" } }
+      }
+    }
+  });
+}
+
+// ───────────────────────── boot ─────────────────────────
+initDayChart();
+</script>
+</body>
+</html>
